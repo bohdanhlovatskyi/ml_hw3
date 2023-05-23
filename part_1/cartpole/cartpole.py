@@ -1,6 +1,7 @@
 import os
 
 import gym
+from gym import wrappers
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -10,8 +11,8 @@ from scipy import stats
 
 class CartPoleQLearningAgent:
     def __init__(self,
-                 learning_rate=0.9,
-                 discount_factor=0.9,
+                 learning_rate=0.01,
+                 discount_factor=0.5,
                  exploration_rate=0.95,
                  exploration_decay_rate=0.95, 
                  num_pos_bins = 10,
@@ -130,7 +131,6 @@ class EpisodeHistory:
     def create_plot(self):
         self.fig, self.ax = plt.subplots(figsize=(14, 7), facecolor='w', edgecolor='k')
         
-        # self.fig.canvas.set_window_title("Episode Length History")
 
         self.ax.set_xlim(0, self.plot_episode_count + 5)
         self.ax.set_ylim(0, self.max_timesteps_per_episode + 5)
@@ -143,7 +143,7 @@ class EpisodeHistory:
         self.point_plot, = plt.plot([], [], linewidth=2.0, c="#1d619b")
         self.mean_plot, = plt.plot([], [], linewidth=3.0, c="#df3930")
 
-    def update_plot(self, episode_index):
+    def update_plot(self, episode_index, save=False):
         plot_right_edge = episode_index
         plot_left_edge = max(0, plot_right_edge - self.plot_episode_count)
 
@@ -158,13 +158,16 @@ class EpisodeHistory:
         mean_kernel_size = 101
         rolling_mean_data = np.concatenate((np.zeros(mean_kernel_size), self.lengths[plot_left_edge:episode_index]))
 
-        rolling_means = pd.Series(rolling_mean_data).rolling(mean_kernel_size).mean()[mean_kernel_size:]
+        rolling_means = pd.Series(rolling_mean_data).rolling(mean_kernel_size, min_periods=0).mean()[mean_kernel_size:]
         self.mean_plot.set_xdata(range(plot_left_edge, plot_left_edge + len(rolling_means)))
         self.mean_plot.set_ydata(rolling_means)
 
         # Repaint the surface.
-        plt.draw()
-        plt.pause(0.000001)
+        if not save:
+            plt.draw()
+            plt.pause(0.000001)
+        else:
+            plt.savefig("result.png")
 
     def is_goal_reached(self, episode_index):
         avg = np.average(self.lengths[episode_index - self.goal_consecutive_episodes + 1:episode_index + 1])
@@ -219,7 +222,7 @@ def run_agent(env, verbose=False):
 
         for timestep_index in range(max_timesteps_per_episode):
             # Perform the action and observe the new state.
-            observation, reward, done, truncated, info = env.step(action)
+            observation, reward, done, info = env.step(action)
 
             # Update the display and log the current state.
             if verbose:
@@ -244,6 +247,7 @@ def run_agent(env, verbose=False):
                 if episode_history.is_goal_reached(episode_index):
                     print()
                     print("Goal reached after {} episodes!".format(episode_index + 1))
+                    episode_history.update_plot(episode_index, save=True)
                     return episode_history
 
                 break
@@ -265,12 +269,11 @@ def main():
 
     env = gym.make("CartPole-v0")
 
-    # env.seed(random_state)
+    env.seed(random_state)
     env.action_space.seed(random_state)
-    observation, info = env.reset(seed=random_state)
     np.random.seed(random_state)
 
-    # env.monitor.start(experiment_dir, force=True, resume=False, seed=random_state)
+    # env = gym.wrappers.Monitor(env, experiment_dir, force=True, resume=False)
     episode_history = run_agent(env, verbose=False)   # Set verbose=False to greatly speed up the process.
     save_history(episode_history, experiment_dir)
     # env.monitor.close()

@@ -1,8 +1,8 @@
 __pycache__
 *.ipynb_checkpoints
-*delete_me
 
 *.pdf
 *env
 *ini
 part_1/cartpole/cartpole-qlearning-1
+.DS_Store
